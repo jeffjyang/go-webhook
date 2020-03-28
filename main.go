@@ -1,10 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"os/exec"
 )
 
@@ -36,24 +36,16 @@ func webhook(res http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	port := "8080"
+	portPtr := flag.String("port", "8080", "Server port")
+	commandPtr := flag.String("command", COMMAND, "Shell command to execute")
 
-	args := os.Args[1:]
-	if len(args) > 0 {
-		if len(args) == 1 {
-			port = args[0]
-		} else if len(args) == 2 {
-			port = args[0]
-			COMMAND = args[1]
-		} else {
-			log.Fatal("Usage: TODO") // TODO
-		}
-	}
+	flag.Parse()
 
-	log.Print("Starting server on port " + port)
+	COMMAND = *commandPtr
+	log.Print("Starting server on port " + *portPtr)
 
 	http.HandleFunc("/webhook/", webhook)
 	http.HandleFunc("/webhook/async/", webhookAsync)
 
-	log.Fatal(http.ListenAndServe(":" + port, nil))
+	log.Fatal(http.ListenAndServe(":" + *portPtr, nil))
 }
