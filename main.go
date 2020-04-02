@@ -26,7 +26,8 @@ var TIMESTAMP_LOG_FILE = "timestamp.log"
 func main() {
 	portPtr := flag.String("port", "8080", "Server port")
 	scriptPtr := flag.String("script", "script.sh", "Shell script to execute")
-	secret := flag.String("otp-secret", "", "Base32 encoded secret code if you wish to enable OTP authentication")
+	secret := flag.String("otp-secret", "",
+		"Base32 encoded secret code if you wish to enable OTP authentication. Set this value if you wish to enable OTP authentication.")
 
 	flag.Parse()
 
