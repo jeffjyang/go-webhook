@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-var COMMAND = "./script.sh"
+var SCRIPT string
 var OTP_SECRET []byte
 
 var OUTPUT_LOG_FILE = "output.log"
@@ -25,12 +25,23 @@ var TIMESTAMP_LOG_FILE = "timestamp.log"
 
 func main() {
 	portPtr := flag.String("port", "8080", "Server port")
-	commandPtr := flag.String("command", COMMAND, "Shell command to execute")
+	scriptPtr := flag.String("script", "script.sh", "Shell script to execute")
 	secret := flag.String("otp-secret", "", "Base32 encoded secret code if you wish to enable OTP authentication")
 
 	flag.Parse()
 
-	COMMAND = *commandPtr
+	// check file permissions on the shell script
+	script := *scriptPtr
+	info, err := os.Stat(script)
+	if err != nil {
+		log.Fatal("An error occurred:\n" + err.Error())
+	}
+	mode := info.Mode()
+	if mode&0100 != 0 {
+		log.Fatal("Script " + script + " is not executable. Double check its file permissions.")
+	}
+
+	SCRIPT = "./" + script
 
 	if *secret != "" {
 		var err error
@@ -76,14 +87,14 @@ func webhook(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	out, err := exec.Command(COMMAND).Output()
+	out, err := exec.Command(SCRIPT).Output()
 	go writeToLog(out)
 
 	if err != nil {
 		fmt.Fprint(res, "An error occurred:\n\n" + err.Error())
 	}
 	if out != nil && len(out) > 0 {
-		fmt.Fprint(res, "\nCommand output:\n\n" + string(out))
+		fmt.Fprint(res, "Script output:\n\n" + string(out))
 	}
 }
 
@@ -95,11 +106,11 @@ func webhookAsync(res http.ResponseWriter, req *http.Request) {
 	}
 
 	go func() {
-		out, _ := exec.Command(COMMAND).Output()
+		out, _ := exec.Command(SCRIPT).Output()
 		writeToLog(out)
 	}()
 
-	fmt.Fprint(res, "Triggered command: " + COMMAND)
+	fmt.Fprint(res, "Triggered script: " + SCRIPT)
 }
 
 func webhookLog(res http.ResponseWriter, req *http.Request) {
@@ -153,7 +164,7 @@ func readLogFiles() (string, error) {
 		return "", err
 	}
 	formatted :=
-		"Command " + COMMAND + " last executed at:\n\n" +
+		"Script " + SCRIPT + " last executed at:\n\n" +
 		string(timestamp) +
 		"\n\nOutput:\n\n" +
 		string(output)
