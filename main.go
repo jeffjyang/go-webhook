@@ -5,10 +5,13 @@ import (
 	"crypto/sha1"
 	"encoding/base32"
 	"encoding/binary"
+	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"strconv"
 	"time"
@@ -16,6 +19,9 @@ import (
 
 var COMMAND = "./script.sh"
 var OTP_SECRET []byte
+
+var OUTPUT_LOG_FILE = "output.log"
+var TIMESTAMP_LOG_FILE = "timestamp.log"
 
 func main() {
 	portPtr := flag.String("port", "8080", "Server port")
@@ -33,16 +39,31 @@ func main() {
 			log.Fatal("Unable to parse OTP secret:\n" + err.Error())
 		}
 	}
-
 	if OTP_SECRET == nil {
 		log.Print("OTP authentication disabled")
 	} else {
 		log.Print("OTP authentication enabled")
 	}
+
+	// create empty log files if they do not exist
+	if _, err := os.Stat(TIMESTAMP_LOG_FILE); os.IsNotExist(err) {
+		_, fileErr := os.Create(TIMESTAMP_LOG_FILE)
+		if fileErr != nil {
+			log.Fatal("Unable to create log file:\n" + fileErr.Error())
+		}
+	}
+	if _, err := os.Stat(OUTPUT_LOG_FILE); os.IsNotExist(err) {
+		_, fileErr := os.Create(OUTPUT_LOG_FILE)
+		if fileErr != nil {
+			log.Fatal("Unable to create log file:\n" + fileErr.Error())
+		}
+	}
+
 	log.Print("Starting server on port " + *portPtr)
 
 	http.HandleFunc("/webhook/", webhook)
 	http.HandleFunc("/webhook/async/", webhookAsync)
+	http.HandleFunc("/webhook/log/", webhookLog)
 
 	log.Fatal(http.ListenAndServe(":" + *portPtr, nil))
 }
@@ -56,12 +77,13 @@ func webhook(res http.ResponseWriter, req *http.Request) {
 	}
 
 	out, err := exec.Command(COMMAND).Output()
+	go writeToLog(out)
 
 	if err != nil {
-		fmt.Fprint(res, "\nAn error occurred:\n" + err.Error())
+		fmt.Fprint(res, "An error occurred:\n\n" + err.Error())
 	}
 	if out != nil && len(out) > 0 {
-		fmt.Fprint(res, "\nCommand output:\n" + string(out))
+		fmt.Fprint(res, "\nCommand output:\n\n" + string(out))
 	}
 }
 
@@ -72,13 +94,27 @@ func webhookAsync(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err := exec.Command(COMMAND).Start()
+	go func() {
+		out, _ := exec.Command(COMMAND).Output()
+		writeToLog(out)
+	}()
 
-	if err != nil {
-		fmt.Fprint(res, "Error triggering script: " + err.Error())
+	fmt.Fprint(res, "Triggered command: " + COMMAND)
+}
+
+func webhookLog(res http.ResponseWriter, req *http.Request) {
+	log.Print("Endpoint: /webhook/log")
+	if !authenticateRequest(req) {
+		fmt.Fprint(res, "Unauthorized.")
 		return
 	}
-	fmt.Fprint(res, "Triggered command: " + COMMAND)
+
+	output, err := readLogFiles()
+	if err != nil {
+		fmt.Fprint(res, "An error occurred:\n\n" + err.Error())
+	}
+
+	fmt.Fprint(res, output)
 }
 
 func authenticateRequest(req *http.Request) bool {
@@ -94,7 +130,38 @@ func verifyOtp(otp string) bool {
 	return otp == expected
 }
 
-// never roll your own crypto, but for the sake of keeping this project simple, this will do.
+func writeToLog(log []byte) {
+	timestamp := []byte(time.Now().Format(time.UnixDate))
+	_ = ioutil.WriteFile(TIMESTAMP_LOG_FILE, timestamp, 0666)
+	_ = ioutil.WriteFile(OUTPUT_LOG_FILE, log, 0666)
+}
+
+func readLogFiles() (string, error) {
+	// check if log files exist
+	_, timestampErr := os.Stat(TIMESTAMP_LOG_FILE)
+	_, outputErr := os.Stat(OUTPUT_LOG_FILE)
+	if os.IsNotExist(timestampErr) || os.IsNotExist(outputErr) {
+		return "", errors.New("error: unable to find log file(s)")
+	}
+
+	timestamp, err := ioutil.ReadFile(TIMESTAMP_LOG_FILE)
+	if err != nil {
+		return "", err
+	}
+	output, err := ioutil.ReadFile(OUTPUT_LOG_FILE)
+	if err != nil {
+		return "", err
+	}
+	formatted :=
+		"Command " + COMMAND + " last executed at:\n\n" +
+		string(timestamp) +
+		"\n\nOutput:\n\n" +
+		string(output)
+
+	return formatted, nil
+}
+
+// never roll your own crypto, but for the sake of keeping this project simple this will do.
 func generateOtp() string {
 	curTime := time.Now().Unix() / 30
 	message := make([]byte, 8)
