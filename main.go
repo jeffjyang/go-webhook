@@ -37,7 +37,7 @@ func main() {
 		log.Fatal("An error occurred:\n" + err.Error())
 	}
 	mode := info.Mode()
-	if mode&0100 != 0 {
+	if mode&0100 == 0 {
 		log.Fatal("Script " + script + " is not executable. Double check its file permissions.")
 	}
 
