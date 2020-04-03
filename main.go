@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -165,7 +166,7 @@ func readLogFiles(script string) (string, error) {
 }
 
 func getLogFileName(scriptFile string) string {
-	return strings.ReplaceAll(scriptFile, ".", "") + ".log"
+	return strings.TrimSuffix(scriptFile, filepath.Ext(scriptFile)) + ".log"
 }
 
 // never roll your own crypto, but for the sake of keeping this project simple this will do.
