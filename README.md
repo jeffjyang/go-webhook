@@ -7,7 +7,7 @@ Authenticator). Just enough security to keep honest people honest!
 
 To run the server: 
 ```
-./go-webhook -h
+$ ./go-webhook -h
 Usage of ./go-webhook:
   -otp-secret string
     	Base32 encoded secret code for OTP authentication. Set this value only if you wish to enable OTP authentication.

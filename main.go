@@ -153,7 +153,6 @@ func writeLog(script string, output []byte, err error) {
 func readLogFiles(script string) (string, error) {
 	logFile := getLogFileName(script)
 
-	// check if log file exists
 	if _, err := os.Stat(logFile); os.IsNotExist(err) {
 		return "", errors.New("error: could not find log file (has the script been run?)")
 	}
