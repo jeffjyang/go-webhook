@@ -21,7 +21,6 @@ var SCRIPT string
 var OTP_SECRET []byte
 
 var OUTPUT_LOG_FILE = "output.log"
-var TIMESTAMP_LOG_FILE = "timestamp.log"
 
 func main() {
 	portPtr := flag.String("port", "8080", "Server port")
@@ -57,13 +56,6 @@ func main() {
 		log.Print("OTP authentication enabled")
 	}
 
-	// create empty log files if they do not exist
-	if _, err := os.Stat(TIMESTAMP_LOG_FILE); os.IsNotExist(err) {
-		_, fileErr := os.Create(TIMESTAMP_LOG_FILE)
-		if fileErr != nil {
-			log.Fatal("Unable to create log file:\n" + fileErr.Error())
-		}
-	}
 	if _, err := os.Stat(OUTPUT_LOG_FILE); os.IsNotExist(err) {
 		_, fileErr := os.Create(OUTPUT_LOG_FILE)
 		if fileErr != nil {
@@ -89,7 +81,7 @@ func webhook(res http.ResponseWriter, req *http.Request) {
 	}
 
 	out, err := exec.Command(SCRIPT).Output()
-	go writeToLog(out)
+	go writeLog(out)
 
 	if err != nil {
 		fmt.Fprint(res, "An error occurred:\n\n" + err.Error())
@@ -108,7 +100,7 @@ func webhookAsync(res http.ResponseWriter, req *http.Request) {
 
 	go func() {
 		out, _ := exec.Command(SCRIPT).Output()
-		writeToLog(out)
+		writeLog(out)
 	}()
 
 	fmt.Fprint(res, "Triggered script: " + SCRIPT)
@@ -142,35 +134,26 @@ func verifyOtp(otp string) bool {
 	return otp == expected
 }
 
-func writeToLog(log []byte) {
-	timestamp := []byte(time.Now().Format(time.UnixDate))
-	_ = ioutil.WriteFile(TIMESTAMP_LOG_FILE, timestamp, 0666)
-	_ = ioutil.WriteFile(OUTPUT_LOG_FILE, log, 0666)
+func writeLog(log []byte) {
+	generated :=
+		"Script " + SCRIPT + " last executed at:\n\n" +
+		time.Now().Format(time.UnixDate) +
+		"\n\nOutput:\n\n";
+	fullLog := append([]byte(generated), log...)
+	_ = ioutil.WriteFile(OUTPUT_LOG_FILE, fullLog, 0666)
 }
 
 func readLogFiles() (string, error) {
-	// check if log files exist
-	_, timestampErr := os.Stat(TIMESTAMP_LOG_FILE)
-	_, outputErr := os.Stat(OUTPUT_LOG_FILE)
-	if os.IsNotExist(timestampErr) || os.IsNotExist(outputErr) {
+	// check if log file exists
+	if _, err := os.Stat(OUTPUT_LOG_FILE); os.IsNotExist(err) {
 		return "", errors.New("error: unable to find log file(s)")
 	}
 
-	timestamp, err := ioutil.ReadFile(TIMESTAMP_LOG_FILE)
-	if err != nil {
-		return "", err
-	}
 	output, err := ioutil.ReadFile(OUTPUT_LOG_FILE)
 	if err != nil {
 		return "", err
 	}
-	formatted :=
-		"Script " + SCRIPT + " last executed at:\n\n" +
-		string(timestamp) +
-		"\n\nOutput:\n\n" +
-		string(output)
-
-	return formatted, nil
+	return string(output), nil
 }
 
 // never roll your own crypto, but for the sake of keeping this project simple this will do.
