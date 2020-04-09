@@ -43,20 +43,20 @@ func main() {
 
 	log.Print("Starting server on port " + *portPtr)
 
-	http.HandleFunc("/webhook/", webhook)
+	http.HandleFunc("/webhook/run/", webhookRun)
 	http.HandleFunc("/webhook/async/", webhookAsync)
 	http.HandleFunc("/webhook/log/", webhookLog)
 
 	log.Fatal(http.ListenAndServe(":" + *portPtr, nil))
 }
 
-func webhook(res http.ResponseWriter, req *http.Request) {
-	log.Print("Endpoint: /webhook/")
+func webhookRun(res http.ResponseWriter, req *http.Request) {
+	log.Print("Endpoint: /webhook/run/")
 	if !authenticateRequest(req) {
 		fmt.Fprint(res, "Unauthorized.")
 		return
 	}
-	scriptFile, err := parseScriptFile(req.URL.Path, "/webhook/")
+	scriptFile, err := parseScriptFile(req.URL.Path, "/webhook/run/")
 	if err != nil {
 		fmt.Fprint(res, "An error occurred:\n\n" + err.Error())
 		return
@@ -94,7 +94,7 @@ func webhookAsync(res http.ResponseWriter, req *http.Request) {
 }
 
 func webhookLog(res http.ResponseWriter, req *http.Request) {
-	log.Print("Endpoint: /webhook/log")
+	log.Print("Endpoint: /webhook/log/")
 	if !authenticateRequest(req) {
 		fmt.Fprint(res, "Unauthorized.")
 		return
