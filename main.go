@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-var OtpSecret []byte
+var otpSecret []byte
 
 func main() {
 	portPtr := flag.String("port", "8080", "Server port")
@@ -30,12 +30,12 @@ func main() {
 
 	if *secret != "" {
 		var err error
-		OtpSecret, err = base32.StdEncoding.DecodeString(*secret)
+		otpSecret, err = base32.StdEncoding.DecodeString(*secret)
 		if err != nil {
 			log.Fatal("Unable to parse OTP secret:\n" + err.Error())
 		}
 	}
-	if OtpSecret == nil {
+	if otpSecret == nil {
 		log.Print("OTP authentication disabled")
 	} else {
 		log.Print("OTP authentication enabled")
@@ -114,7 +114,7 @@ func webhookLog(res http.ResponseWriter, req *http.Request) {
 }
 
 func authenticateRequest(req *http.Request) bool {
-	if OtpSecret == nil {
+	if otpSecret == nil {
 		// otp authentication disabled
 		return true
 	}
@@ -174,7 +174,7 @@ func generateOtp() string {
 	message := make([]byte, 8)
 	binary.BigEndian.PutUint64(message, uint64(curTime))
 
-	hmacSha1 := hmac.New(sha1.New, OtpSecret)
+	hmacSha1 := hmac.New(sha1.New, otpSecret)
 	hmacSha1.Write(message)
 	hash := hmacSha1.Sum(nil)
 
